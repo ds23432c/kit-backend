@@ -175,6 +175,44 @@ router.post('/bulk', authMiddleware, async (req, res) => {
     }
 
     res.json({ message: `Сохранено отметок: ${saved}` });
+
+    // Автоматически отправляем email куратору после сохранения
+    try {
+      const Group = require('../models/Group');
+      const group = await Group.findById(groupId).populate('curatorId');
+      if (group?.curatorId?.email) {
+        const { sendEmail, buildAbsenceEmail } = require('../services/emailService');
+        const Attendance = require('../models/Attendance');
+
+        const targetDate = new Date(date || new Date());
+        targetDate.setHours(0,0,0,0);
+        const endDate = new Date(targetDate);
+        endDate.setHours(23,59,59,999);
+
+        const absences = await Attendance.find({
+          groupId,
+          date: { $gte: targetDate, $lte: endDate },
+          status: { $in: ['absent','sick','late','family','other'] }
+        }).populate('studentId','fullName');
+
+        if (absences.length > 0) {
+          const students = absences.map(r => ({
+            fullName: r.studentId?.fullName || '—',
+            status:   r.status,
+            comment:  r.comment
+          }));
+          const { subject, html, text } = buildAbsenceEmail({
+            teacherName: group.curatorId.name,
+            groupName:   group.name,
+            date:        targetDate,
+            students
+          });
+          await sendEmail({ to: group.curatorId.email, subject, html, text });
+        }
+      }
+    } catch(emailErr) {
+      console.error('⚠️ Email не отправлен:', emailErr.message);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -28,11 +28,11 @@ app.use('/api/', limiter);
 // ── CORS (разрешаем фронтенду обращаться к API) ──
 app.use(cors({
   origin: [
-    process.env.FRONTEND_URL || 'https://ejournal-kit.online',
-    'https://ejournal-kit.online',
+    process.env.FRONTEND_URL || 'http://ejournal-kit.ru',
     'http://localhost:3000',
     'http://localhost:5500',
-],
+    // добавь сюда свой домен при деплое
+  ],
   credentials: true
 }));
 
@@ -47,6 +47,7 @@ app.use('/api/students',   require('./routes/students'));
 app.use('/api/attendance', require('./routes/attendance'));
 app.use('/api/news',       require('./routes/news'));
 app.use('/api/dashboard',  require('./routes/dashboard'));
+app.use('/api/notify',     require('./routes/notify'));
 
 // ── Главная проверка ──
 app.get('/', (req, res) => {
