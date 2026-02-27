@@ -79,4 +79,28 @@ router.post('/register', authMiddleware, async (req, res) => {
   }
 });
 
+// ── GET /api/auth/users ── (только admin)
+router.get('/users', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Нет доступа' });
+    const users = await User.find({}).populate('groupId', 'name').sort('name');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── DELETE /api/auth/users/:id ── (только admin)
+router.delete('/users/:id', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Нет доступа' });
+    if (req.params.id === req.user._id.toString()) {
+      return res.status(400).json({ error: 'Нельзя удалить себя' });
+    }
+    await User.findByIdAndUpdate(req.params.id, { isActive: false });
+    res.json({ message: 'Пользователь удалён' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 module.exports = router;
