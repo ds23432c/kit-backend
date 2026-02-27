@@ -121,4 +121,26 @@ router.get('/full', authMiddleware, async (req, res) => {
   }
 });
 
+// ── GET /api/dashboard/recent-marks ──
+// Последние 5 отметок (для главной страницы)
+router.get('/recent-marks', async (req, res) => {
+  try {
+    const records = await Attendance.find({})
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate('studentId', 'fullName')
+      .populate('groupId',   'name');
+
+    res.json(records.map(r => ({
+      studentName: r.studentId?.fullName || '—',
+      groupName:   r.groupId?.name || '—',
+      status:      r.status,
+      comment:     r.comment,
+      date:        r.date
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
