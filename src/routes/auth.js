@@ -54,9 +54,29 @@ router.post('/login', async (req, res) => {
 });
 
 // ── GET /api/auth/me ──
-// Получить данные текущего пользователя
 router.get('/me', authMiddleware, async (req, res) => {
   res.json({ user: req.user });
+});
+
+// ── POST /api/auth/register ──
+// Создать пользователя (только admin)
+router.post('/register', authMiddleware, async (req, res) => {
+  try {
+    const { name, login, password, role, groupId, email } = req.body;
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Только администратор может создавать пользователей' });
+    }
+    if (!name || !login || !password || !role) {
+      return res.status(400).json({ error: 'Заполни все обязательные поля' });
+    }
+    const exists = await User.findOne({ login });
+    if (exists) return res.status(400).json({ error: 'Логин уже занят' });
+
+    const user = await User.create({ name, login, password, role, groupId: groupId || null, email });
+    res.status(201).json({ message: 'Пользователь создан', user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
