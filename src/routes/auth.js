@@ -83,8 +83,36 @@ router.post('/register', authMiddleware, async (req, res) => {
 router.get('/users', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Нет доступа' });
-    const users = await User.find({}).populate('groupId', 'name').sort('name');
+    const users = await User.find({ isActive: true }).populate('groupId', 'name').sort('name');
     res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── PUT /api/auth/users/:id ── (только admin)
+router.put('/users/:id', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Нет доступа' });
+    const { name, password, role, groupId, email } = req.body;
+
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    if (name)              user.name    = name.trim();
+    if (role)              user.role    = role;
+    if (email !== undefined) user.email = email || '';
+    // groupId: null = убрать привязку, строка = привязать
+    user.groupId = groupId || null;
+
+    // Пароль — только если передан и достаточно длинный (pre-save hook хеширует)
+    if (password && password.trim().length >= 6) {
+      user.password = password.trim();
+    }
+
+    await user.save();
+    const updated = await User.findById(user._id).populate('groupId', 'name');
+    res.json({ message: 'Пользователь обновлён', user: updated });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -95,9 +123,11 @@ router.delete('/users/:id', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Нет доступа' });
     if (req.params.id === req.user._id.toString()) {
-      return res.status(400).json({ error: 'Нельзя удалить себя' });
+      return res.status(400).json({ error: 'Нельзя удалить самого себя' });
     }
-    await User.findByIdAndUpdate(req.params.id, { isActive: false });
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    await User.findByIdAndDelete(req.params.id); // полное удаление из БД
     res.json({ message: 'Пользователь удалён' });
   } catch (err) {
     res.status(500).json({ error: err.message });
