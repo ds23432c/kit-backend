@@ -9,7 +9,7 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 router.get('/', async (req, res) => {
   try {
     const groups = await Group.find({ isActive: true })
-      .select('name')
+      .populate('curatorId', 'name email')
       .sort('name');
     res.json(groups);
   } catch (err) {
